@@ -1,6 +1,6 @@
 import functools
 import torch.nn as nn
-from taming.components.util import ActNorm
+from quantart.components.util import ActNorm
 
 
 def weights_init(m):

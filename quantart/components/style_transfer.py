@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from taming.components.blocks import ResnetBlock, AttnBlock
+from quantart.components.blocks import ResnetBlock, AttnBlock
 
 
 class StyleTransferBlock(nn.Module):

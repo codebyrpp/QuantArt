@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch
-from taming.components.blocks import ResnetBlock, AttnBlock, Upsample, Normalize, nonlinearity
+from quantart.components.blocks import ResnetBlock, AttnBlock, Upsample, Normalize, nonlinearity
 import numpy as np
 
 
