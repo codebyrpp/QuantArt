@@ -11,6 +11,17 @@ from quantart.util import load_model
 
 
 class BaseVQGAN(pl.LightningModule):
+    """
+    VQGAN Model (Stage 1) for learning a discrete latent representation of images.
+
+    This model consists of an Encoder, a VectorQuantizer, and a Decoder. It is trained
+    to reconstruct images while learning a compact discrete codebook. This learned
+    latent space serves as the foundation for the Stage 2 style transfer model.
+
+    References:
+        "Taming Transformers for High-Resolution Image Synthesis" (Esser et al., 2021)
+    """
+
     def __init__(self,
                  ddconfig,
                  lossconfig,
@@ -27,6 +38,25 @@ class BaseVQGAN(pl.LightningModule):
                  freeze_decoder=False,
                  ckpt_quantize=None,
                  ):
+        """
+        Initialize the VQGAN model.
+
+        Args:
+            ddconfig (dict): Configuration for the Encoder and Decoder (e.g., ch, out_ch, ch_mult).
+            lossconfig (dict): Configuration for the VQLPIPS loss (discriminator, weights).
+            n_embed (int): Number of embeddings in the codebook (codebook size).
+            embed_dim (int): Dimension of the embedding vectors.
+            ckpt_path (str, optional): Path to a checkpoint to load weights from.
+            ignore_keys (list, optional): List of keys to ignore when loading from checkpoint.
+            image_key (str, optional): Key to retrieve images from the batch (default: "image").
+            colorize_nlabels (int, optional): If set, enables colorization for segmentation masks.
+            monitor (str, optional): Metric to monitor.
+            remap (str, optional): Path to a file for remapping indices.
+            sane_index_shape (bool, optional): If True, returns indices as (B, H, W).
+            use_quantize (bool, optional): Whether to use the quantization layer.
+            freeze_decoder (bool, optional): Whether to freeze the decoder weights.
+            ckpt_quantize (str, optional): Checkpoint path for loading specific quantizer weights.
+        """
         super().__init__()
         self.image_key = image_key
         self.encoder = Encoder(**ddconfig)
@@ -66,6 +96,18 @@ class BaseVQGAN(pl.LightningModule):
         print(f"Restored from {path}")
 
     def encode(self, x):
+        """
+        Encode input images into quantized representations.
+
+        Args:
+            x (torch.Tensor): Input images of shape (B, C, H, W).
+
+        Returns:
+            tuple:
+                - quant (torch.Tensor): Quantized latent feature map (B, embed_dim, h, w).
+                - emb_loss (torch.Tensor): Codebook commitment loss.
+                - info (tuple): Additional info (perplexity, min_encodings, indices).
+        """
         h = self.encoder(x)
         h = self.quant_conv(h)
         if self.use_quantize:
@@ -75,16 +117,49 @@ class BaseVQGAN(pl.LightningModule):
             return h, None, None
 
     def decode(self, quant):
+        """
+        Decode quantized latent features back to image space.
+
+        Args:
+            quant (torch.Tensor): Quantized features (B, embed_dim, h, w).
+
+        Returns:
+            torch.Tensor: Reconstructed images (B, C, H, W).
+        """
         quant = self.post_quant_conv(quant)
         dec = self.decoder(quant)
         return dec
 
     def decode_code(self, code_b):
+        """
+        Decode from discrete codebook indices.
+
+        Args:
+            code_b (torch.Tensor): Tensor of codebook indices.
+
+        Returns:
+            torch.Tensor: Reconstructed images.
+        """
         quant_b = self.quantize.embed_code(code_b)
         dec = self.decode(quant_b)
         return dec
 
     def forward(self, input):
+        """
+        Forward pass of the VQGAN.
+
+        1. Encode input to latent codes.
+        2. Quantize latent codes.
+        3. Decode quantized codes to reconstruct input.
+
+        Args:
+            input (torch.Tensor): Input batch.
+
+        Returns:
+            tuple:
+                - dec (torch.Tensor): Reconstructed images.
+                - diff (torch.Tensor): Quantization loss.
+        """
         quant, diff, _ = self.encode(input)
         dec = self.decode(quant)
         return dec, diff
@@ -97,6 +172,21 @@ class BaseVQGAN(pl.LightningModule):
         return x.float()
 
     def training_step(self, batch, batch_idx, optimizer_idx):
+        """
+        Single training step for PyTorch Lightning.
+
+        Handles two alternating optimization steps:
+        - Optimizer 0: Generator/Autoencoder (Reconstruction + Codebook + Adversarial Generator Loss).
+        - Optimizer 1: Discriminator (Adversarial Discriminator Loss).
+
+        Args:
+            batch (dict): Batch of data.
+            batch_idx (int): Index of batch.
+            optimizer_idx (int): Index of optimizer (0 or 1).
+
+        Returns:
+            torch.Tensor: The calculated loss value.
+        """
         self.decoder.conv_out.weight.requires_grad = True
 
         x = self.get_input(batch, self.image_key)

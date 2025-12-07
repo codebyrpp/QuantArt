@@ -16,6 +16,19 @@ from quantart.util import load_model, disable_grad
 
 
 class StyleTransfer(pl.LightningModule):
+    """
+    Stage 2 Style Transfer Model (QuantArt).
+
+    This model performs style transfer in the discrete latent space of a pre-trained VQGAN.
+    It takes a content image and a style/reference image, encodes them, and learns a mapping
+    (using Style-Guided Attention) to produce a new stylized latent representation.
+
+    The model utilizes:
+    - Fixed Encoder/Decoder from Stage 1 (VQGAN).
+    - SGAModule (Style-Guided Attention) for the transfer task.
+    - Two VectorQuantizers (one for input features, one for output features).
+    """
+
     def __init__(self,
                  ddconfig,
                  lossconfig,
@@ -35,6 +48,28 @@ class StyleTransfer(pl.LightningModule):
                  use_conv=True,
                  use_selfatt=True,
                  ):
+        """
+        Initialize the Style Transfer model.
+
+        Args:
+            ddconfig (dict): VQGAN config for creating Encoder/Decoder instances.
+            lossconfig (dict): Config for Stage 2 Loss (GAN + Style + Content).
+            n_embed (int): Codebook size.
+            embed_dim (int): Embedding dimension.
+            ckpt_path (str, optional): Checkpoint for the entire Stage 2 model.
+            ignore_keys (list): Keys to ignore when loading checkpoint.
+            image_key1 (str): Key for Content image in batch.
+            image_key2 (str): Key for Style/Reference image in batch.
+            colorize_nlabels (int): For segmentation tasks.
+            monitor (str): Metric to monitor.
+            remap (str): Path to remapping file.
+            sane_index_shape (bool): Index shape format.
+            checkpoint_encoder (str): Path to VQGAN checkpoint to load Encoder weights.
+            checkpoint_decoder (str): Path to VQGAN checkpoint to load Decoder weights.
+            use_residual (bool): Whether to use residual connections in SGABlock.
+            use_conv (bool): Whether to use convolution in SGABlock.
+            use_selfatt (bool): Whether to use self-attention in SGABlock.
+        """
         super().__init__()
         self.image_key1 = image_key1
         self.image_key2 = image_key2
@@ -132,6 +167,28 @@ class StyleTransfer(pl.LightningModule):
         return dec, diff
 
     def transfer(self, x, ref, quantize=True):
+        """
+        Perform the style transfer operation.
+
+        1. Encode Content (x) to quantized latent codes (quant_x).
+        2. Encode Reference (ref) to quantized latent codes (quant_ref).
+        3. Pass quant_x and quant_ref through the Style-Guided Attention Module (SGAModule).
+        4. Quantize the output of SGAModule to get the final stylized latents (quant_y).
+
+        Args:
+            x (torch.Tensor): Content image batch.
+            ref (torch.Tensor): Style/Reference image batch.
+            quantize (bool): Whether to apply quantization.
+
+        Returns:
+            tuple:
+                - quant_x: Quantized content latents.
+                - quant_y: Quantized stylized latents (result).
+                - quant_ref: Quantized reference latents.
+                - diff_x2y: Quantization loss for the transfer.
+                - indices_y: Codebook indices for the result.
+                - indices_ref: Codebook indices for the reference.
+        """
         with torch.no_grad():
             quant_x, _, _ = self.encode(x, quantize=True)
             quant_x = quant_x.detach()
@@ -154,6 +211,23 @@ class StyleTransfer(pl.LightningModule):
         return x.float()
 
     def training_step(self, batch, batch_idx, optimizer_idx):
+        """
+        Single training step for Style Transfer.
+
+        Optimizes:
+        1. SGAModule (Style Transfer Network) via 'aeloss' (Content + Style + GAN Generator Loss).
+        2. Discriminator via 'discloss' (GAN Discriminator Loss).
+
+        The Encoder and Decoder are typically frozen (loaded from checkpoints) and not updated here.
+
+        Args:
+            batch (dict): Batch containing content and style images.
+            batch_idx (int): Batch index.
+            optimizer_idx (int): 0 for Generator, 1 for Discriminator.
+
+        Returns:
+            torch.Tensor: Loss value.
+        """
         x1 = self.get_input(batch, self.image_key1)
         x2 = self.get_input(batch, self.image_key2)
 

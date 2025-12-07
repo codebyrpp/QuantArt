@@ -66,6 +66,8 @@ Assuming `ddconfig` with `z_channels=256`, `ch_mult=[1,1,2,2,4]`, `attn_resoluti
 
 ## Component Details
 
+For a deep dive into the internal code implementation of these components, please refer to [06_Code_Internals.md](06_Code_Internals.md).
+
 ### SGAModule (`quantart/components/style_transfer.py`)
 
 This is the core novelty, often referred to as the Style Transfer Module. It consists of `block_num` (default 6) layers of `SGABlock`.
