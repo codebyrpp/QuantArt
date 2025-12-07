@@ -4,7 +4,7 @@ This document explains the loss functions, optimization strategies, and training
 
 ## Loss Landscape
 
-The model optimization is driven by a composite loss function defined in `taming.modules.losses.vqperceptual_ref.VQLPIPS_Ref`.
+The model optimization is driven by a composite loss function defined in `quantart.losses.stage_2.Stage2Loss`.
 
 ### Total Loss Composition
 
@@ -20,7 +20,7 @@ $$ \mathcal{L}_{AE} = \lambda_{rev} \mathcal{L}_{rev} + \lambda_{code} \mathcal{
 
 - **Goal**: Ensure the transferred **latent representation** stays faithful to the content structure.
 - **Code**: `calc_content_loss` (MSE).
-- **Input**: `quant_y` (Transferred Latent) vs `quant_x` (Content Latent).
+- **Input**: `quant_y` (Transferred Latent) vs `quant_x` (Content Latent) or `mapped_reconstructions` vs `quant`.
 - **Weight**: `reverse_weight` (Default: 1.0).
 
 #### 2. Style Loss (`style_loss`)
@@ -33,7 +33,7 @@ $$ \mathcal{L}_{AE} = \lambda_{rev} \mathcal{L}_{rev} + \lambda_{code} \mathcal{
 
 #### 3. Codebook Loss (`codebook1_loss`)
 
-- **Goal**: Move the embedding vectors towards the encoder outputs.
+- **Goal**: Move the embedding vectors towards the encoder outputs (or vice versa depending on formulation).
 - **Formula**: $\beta \|z - sg[e]\|_2^2$ (Commitment loss).
 - **Weight**: `codebook1_weight` (Default: 1.0).
 
@@ -54,18 +54,18 @@ Common configurations found in `configs/*.yaml`:
   - `style_weight`: 10.0 (Emphasizes style transfer).
   - `disc_start`: 0 (Discriminator starts immediately or after N steps).
 
-## Training Step (`VQModel_Ref.training_step`)
+## Training Step (`ExperimentStage2.training_step`)
 
 The training process uses PyTorch Lightning's optimization loop with two optimizers:
 
 1.  **Optimizer 0 (Generator/Transfer)**:
 
-    - Calculates `transfer(x1, x2)`.
-    - Computes `total_loss`.
+    - Calculates `transfer(x1, x2)` which computes encodings and transfer.
+    - Computes `total_loss` via `self.loss` (`Stage2Loss`).
     - Backpropagates through `model_x2y` (and potentially encoder/decoder if not frozen, though usually frozen).
 
 2.  **Optimizer 1 (Discriminator)**:
     - Computes `logits_real` (on reference `x1` or `x2`) and `logits_fake` (on transferred output).
     - Computes `d_loss`.
 
-**Note**: In many VQGAN-based experiments, the Encoder and Decoder are loaded from a checkpoint and `frozen` (via `disable_grad`). Only the `StyleTransferModule` and `VectorQuantizer` (sometimes) are trained.
+**Note**: In many VQGAN-based experiments, the Encoder and Decoder are loaded from a checkpoint and `frozen` (via `disable_grad` helper or loading state dicts without adding to optimizer). Only the `StyleTransferModule` and `VectorQuantizer` (sometimes) are trained.

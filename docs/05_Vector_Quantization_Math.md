@@ -1,6 +1,6 @@
 # Vector Quantization Math & Implementation
 
-This document details the mathematical principles behind the `VectorQuantizer2` class implemented in `taming/modules/vqvae/quantize.py`. It maps the theoretical VQ-VAE concepts to their specific lines of code.
+This document details the mathematical principles behind the `VectorQuantizer` class implemented in `quantart/components/quantizer.py`. It maps the theoretical VQ-VAE concepts to their specific lines of code.
 
 ## Core Concepts
 
@@ -17,7 +17,7 @@ To find the nearest neighbor, we calculate the Euclidean distance between the fl
 **Mathematically:**
 $$ d(z, e_k) = \|z - e_k\|^2 = \|z\|^2 + \|e_k\|^2 - 2 z \cdot e_k $$
 
-**Implementation (`VectorQuantizer2.forward`):**
+**Implementation (`VectorQuantizer.forward`):**
 The code uses this expanded form for efficiency, calculating it via matrix operations rather than a loop.
 
 ```python
@@ -39,8 +39,8 @@ d = torch.sum(z_flattened ** 2, dim=1, keepdim=True) + \
 We select the index $k$ that minimizes the distance.
 
 **Mathematically:**
-$$ k^* = \arg\min_k \|z - e_k\|\_2 $$
-$$ z_q = e_{k^*} $$
+$$ k^_ = \arg\min*k \|z - e_k\|\_2 $$
+$$ z_q = e*{k^_} $$
 
 **Implementation:**
 
@@ -54,7 +54,7 @@ z_q = self.embedding(min_encoding_indices).view(z.shape)
 The training objective includes two terms to align the codebook and the encoder outputs.
 
 **Standard VQ-VAE Loss Formulation:**
-$$ \mathcal{L}_{VQ} = \underbrace{\|sg[z_e(x)] - e\|\_2^2}_{\text{Codebook Loss}} + \beta \underbrace{\|z_e(x) - sg[e]\|\_2^2}_{\text{Commitment Loss}} $$
+$$ \mathcal{L}_{VQ} = \underbrace{\|sg[z_e(x)] - e\|\_2^2}_{\text{Codebook Loss}} + \beta \underbrace{\|z*e(x) - sg[e]\|\_2^2}*{\text{Commitment Loss}} $$
 
 - $sg[\cdot]$: Stop-gradient operator.
 - **Codebook Loss**: Updates the embedding vectors $e$ to move towards the encoder output $z_e(x)$.
@@ -80,7 +80,7 @@ else:
 
 - `z_q.detach()` represents $sg[e]$ (target is fixed embedding).
 - `z.detach()` represents $sg[z_e(x)]$ (target is fixed encoder output).
-- **QuantArt Note**: The codebase typically runs with `legacy=True` for backward compatibility with pre-trained Taming Transformers checkpoints.
+- **QuantArt Note**: The codebase typically runs with `legacy=True` for backward compatibility with pre-trained checkpoints.
 
 ## 4. Straight-Through Estimator (STE)
 

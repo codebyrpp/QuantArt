@@ -4,7 +4,7 @@ This document outlines how raw images are ingested, processed, and fed into the 
 
 ## Data Loading Strategy
 
-The project primarily uses the `UnpairedImageTrain` class (wrapping `UnpairedImagePaths`) defined in `taming/data/unpaired_image.py` and `taming/data/base.py`. This supports training on two distinct datasets (Content vs Style) without requiring paired ground truth.
+The project primarily uses the `UnpairedImageTrain` class (wrapping `UnpairedImagePaths`) defined in `quantart/data/unpaired_image.py` and `quantart/data/base.py`. This supports training on two distinct datasets (Content vs Style) without requiring paired ground truth.
 
 ### Class: `UnpairedImagePaths`
 
@@ -40,7 +40,7 @@ Preprocessing is handled by the `Albumentations` library, ensuring high-performa
 
 ## Configuration Example
 
-From `configs/art2art.yaml`:
+From `configs/stage_2/face2art.yaml` (example):
 
 ```yaml
 data:
@@ -49,11 +49,11 @@ data:
     batch_size: 8
     num_workers: 8
     train:
-      target: taming.data.unpaired_image.UnpairedImageTrain
+      target: quantart.data.unpaired_image.UnpairedImageTrain
       params:
-        folder1: datasets/painter-by-numbers/train
-        folder2: datasets/painter-by-numbers/train
+        folder1: datasets/ffhq/images1024x1024
+        folder2: datasets/metfaces/images
         size: 256
 ```
 
-This configuration sets up a self-supervised or unpaired training loop where both content and style come from the same dataset (Painter by Numbers), likely for Art-to-Art transfer tasks.
+This configuration sets up a self-supervised or unpaired training loop where content comes from `folder1` and style comes from `folder2`.

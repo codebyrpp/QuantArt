@@ -1,80 +1,74 @@
-# Refactoring & Cleanup Suggestions
+# Refactoring & Cleanup Log
 
-This document outlines structural improvements and code cleanup opportunities to make the codebase more maintainable and focused on the QuantArt implementation.
+This document outlines the structural improvements and code cleanup that have been applied to the codebase to transform it into the `quantart` package.
 
 ## 1. Eliminate Dead Code
 
-Static analysis reveals several classes and files that appear to be unused remnants from the original repository fork (likely Taming Transformers or a similar VQGAN repo) and are not utilized in the QuantArt style transfer pipeline.
+Static analysis revealed several classes and files that were unused remnants from the original repository fork.
 
 ### `taming/modules/diffusionmodules/model.py`
 
-This file contains 900+ lines. The following classes have **zero references** in the codebase and should be removed or moved to an archive:
-
-- `VUNet`
-- `SimpleDecoder`
-- `UpsampleDecoder`
-- `Decoder_SR`
+- **Action Taken**: The file was split and unused classes were removed.
+- **Removed Classes**: `VUNet`, `SimpleDecoder`, `UpsampleDecoder`, `Decoder_SR`.
 
 ### `taming/models/`
 
-- **`vqgan_ref_continuous.py`**: This file defines a class `VQModel_Ref` (clashing with the main one) but is **never referenced** in any configuration file or import. It appears to be an abandoned experiment.
-  - **Recommendation**: Delete `vqgan_ref_continuous.py`.
+- **Action Taken**: `vqgan_ref_continuous.py` (and similar abandoned experiments) were removed.
 
 ### `taming/modules/vqvae/quantize.py`
 
-- **`VectorQuantizer`**: Explicitly marked as buggy in comments. `VQModel_Ref` uses `VectorQuantizer2`.
-  - **Recommendation**: Remove `VectorQuantizer` if backward compatibility with very old pre-trained weights isn't required (or merge the logic).
+- **Action Taken**: `VectorQuantizer` (buggy version) was replaced/merged. The current `quantart/components/quantizer.py` contains the improved `VectorQuantizer` (formerly `VectorQuantizer2`) with support for legacy checkpoints.
 
 ## 2. Structural Reorganization
 
-The current structure nests core logic deep within generic folder names (`taming/modules/diffusionmodules`). A flatter, domain-specific structure would be clearer.
+The codebase was moved from a generic `taming` structure to a domain-specific `quantart` structure.
 
-### Recommended Directory Structure
+### Implemented Directory Structure
 
 ```text
-quantart/                  <-- Rename 'taming' to 'quantart' or 'src'
+quantart/                  <-- Renamed from 'taming'
 ├── models/
-│   ├── wrapper.py         <-- vqgan_ref.py (Main Lightning Module)
-│   └── backbone.py        <-- vqgan.py (Pre-training backbone)
-├── components/            <-- Split up the massive 'modules' folder
-│   ├── encoder.py         <-- From diffusionmodules/model.py
-│   ├── decoder.py         <-- From diffusionmodules/model.py
-│   ├── style_transfer.py  <-- From diffusionmodules/model.py (StyleTransferModule)
-│   ├── quantization.py    <-- From vqvae/quantize.py
-│   └── discriminator.py   <-- From discriminator/model.py
+│   ├── stage_1.py         <-- Base VQGAN (formerly vqgan.py)
+│   └── stage_2.py         <-- Style Transfer (formerly vqgan_ref.py)
+├── components/            <-- Split from 'modules'
+│   ├── encoder.py         <-- Content/Style Encoder
+│   ├── decoder.py         <-- Generator
+│   ├── style_transfer.py  <-- StyleTransferModule
+│   ├── quantizer.py       <-- VectorQuantizer
+│   ├── discriminator.py   <-- NLayerDiscriminator
+│   └── blocks.py          <-- ResnetBlock, AttnBlock, etc.
 ├── losses/
-│   ├── composite.py       <-- vqperceptual_ref.py
+│   ├── stage_1.py         <-- VQGAN Loss
+│   ├── stage_2.py         <-- Style Transfer Loss
 │   └── lpips.py
 ├── data/
-│   ├── unpaired.py        <-- unpaired_image.py
-│   └── transforms.py      <-- albumentations logic
-└── utils/
+│   ├── unpaired_image.py  <-- UnpairedImageTrain
+│   ├── paired_image.py
+│   └── ...
+└── util.py
 ```
 
 ### Specific File Splits
 
-**`taming/modules/diffusionmodules/model.py`** is currently a "God Object" file. It should be split:
+**`taming/modules/diffusionmodules/model.py`** was split into:
 
-1.  **`blocks.py`**: `ResnetBlock`, `AttnBlock`, `Upsample`, `Downsample`, `Normalize`, `nonlinearity`.
-2.  **`encoder.py`**: `Encoder` class.
-3.  **`decoder.py`**: `Decoder` class.
-4.  **`transform.py`**: `StyleTransferModule`, `StyleTransferBlock`.
+1.  **`quantart/components/blocks.py`**: `ResnetBlock`, `AttnBlock`, etc.
+2.  **`quantart/components/encoder.py`**: `Encoder` class.
+3.  **`quantart/components/decoder.py`**: `Decoder` class.
+4.  **`quantart/components/style_transfer.py`**: `StyleTransferModule`, `StyleTransferBlock`.
 
 ## 3. Configuration Management
 
-- **Current**: Configs are scattered in `configs/`.
-- **Issue**: `vqgan_wikiart.yaml` uses `taming.models.vqgan.VQModel` while others use `vqgan_ref`.
-- **Recommendation**: Separate training configs (Pre-training VQGAN) from inference/transfer configs (QuantArt) into subfolders `configs/pretrain/` and `configs/transfer/`.
+- **Action Taken**: Configs are organized into stages or tasks (e.g., `stage_1` for VQGAN training, `stage_2` for Style Transfer).
 
 ## 4. Variable Naming & Type Hinting
 
-- **Type Hints**: The codebase lacks Python type hints (`def func(x: torch.Tensor) -> torch.Tensor:`). Adding these would significantly help with understanding tensor shapes.
-- **Variable Names**: `x1` and `x2` in `VQModel_Ref` are generic. Renaming them to `content_img` and `style_img` throughout the pipeline would reduce cognitive load.
+- **Status**: Partially improved. `ExperimentStage2` uses clearer separation of content/reference encoding.
+- **Ongoing**: Adding type hints to forward passes is a continuous improvement task.
 
-## 5. Summary of Action Items
+## 5. Summary of Completed Actions
 
-1.  [ ] **Delete** `taming/models/vqgan_ref_continuous.py`.
-2.  [ ] **Remove** unused classes (`VUNet`, `SimpleDecoder`, etc.) from `model.py`.
-3.  [ ] **Rename** package `taming` to `quantart`.
-4.  [ ] **Split** `diffusionmodules/model.py` into smaller component files.
-5.  [ ] **Add** type hints to `StyleTransferModule.forward`.
+1.  [x] **Delete** `taming/models/vqgan_ref_continuous.py`.
+2.  [x] **Remove** unused classes (`VUNet`, `SimpleDecoder`, etc.) from `model.py`.
+3.  [x] **Rename** package `taming` to `quantart`.
+4.  [x] **Split** `diffusionmodules/model.py` into smaller component files.
