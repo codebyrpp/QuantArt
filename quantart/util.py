@@ -1,4 +1,5 @@
-import os, hashlib
+import os
+import hashlib
 import requests
 from tqdm import tqdm
 
@@ -37,7 +38,8 @@ def get_ckpt_path(name, root, check=False):
     assert name in URL_MAP
     path = os.path.join(root, CKPT_MAP[name])
     if not os.path.exists(path) or (check and not md5_hash(path) == MD5_MAP[name]):
-        print("Downloading {} model from {} to {}".format(name, URL_MAP[name], path))
+        print("Downloading {} model from {} to {}".format(
+            name, URL_MAP[name], path))
         download(URL_MAP[name], path)
         md5 = md5_hash(path)
         assert md5 == MD5_MAP[name], md5
@@ -142,6 +144,21 @@ def retrieve(
         return list_or_dict, success
 
 
+def load_model(model, pretrained_dict, key):
+    model_dict = model.state_dict()
+    new_dict = {}
+    for k, v in pretrained_dict.items():
+        if k.startswith(key):
+            new_dict[k[len(key)+1:]] = v
+    model.load_state_dict(new_dict)
+
+
+def disable_grad(model):
+    for param in model.parameters():
+        param.requires_grad = False
+    return model
+
+
 if __name__ == "__main__":
     config = {"keya": "a",
               "keyb": "b",
@@ -154,4 +171,3 @@ if __name__ == "__main__":
     config = OmegaConf.create(config)
     print(config)
     retrieve(config, "keya")
-

@@ -4,7 +4,7 @@ import numpy as np
 from einops import rearrange
 
 
-class VectorQuantizer2(nn.Module):
+class VectorQuantizer(nn.Module):
     """
     Improved version over VectorQuantizer, can be used as a drop-in replacement. Mostly
     avoids costly matrix multiplications and allows for post-hoc remapping of indices.
