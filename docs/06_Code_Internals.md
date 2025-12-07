@@ -21,6 +21,16 @@ Key parameters:
 - `n_embed`: Size of the codebook (number of discrete tokens).
 - `ckpt_quantize`: Optional path to load pre-trained quantizer weights separately.
 
+#### Configuration Example (`vqgan_wikiart.yaml`)
+
+Analyzing `configs/stage_1/vqgan_wikiart.yaml` reveals specific architectural choices:
+
+- **Downsampling Factor**: `ch_mult: [1, 1, 2, 2, 4]` implies 4 downsampling steps ($2^4 = 16$). For a 256x256 input, the latent map is 16x16.
+- **Latent Dimension**: `z_channels: 256` and `embed_dim: 256`. The encoder outputs 256 channels, matching the codebook vector size.
+- **Codebook Size**: `n_embed: 1024`. The model learns 1024 distinct style/content tokens.
+- **Attention**: `attn_resolutions: [16]`. Self-attention is applied at the lowest resolution (16x16).
+- **Discriminator**: `disc_start: 10000` means the adversarial loss (discriminator) only activates after 10,000 steps, allowing the autoencoder to stabilize first.
+
 ### 2. Forward Pass Mechanics
 
 The data flow is split into modular methods:
