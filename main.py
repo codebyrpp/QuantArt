@@ -1,7 +1,17 @@
-import argparse, os, sys, datetime, glob, importlib
+import argparse
+import os
+import sys
+import datetime
+import glob
+import importlib
 from omegaconf import OmegaConf
 import numpy as np
 from PIL import Image
+
+# Monkey patch: Map ANTIALIAS to LANCZOS (its replacement)
+if not hasattr(Image, 'ANTIALIAS'):
+    Image.ANTIALIAS = Image.LANCZOS
+
 import torch
 import torchvision
 from torch.utils.data import random_split, DataLoader, Dataset
@@ -12,11 +22,11 @@ from pytorch_lightning.callbacks import ModelCheckpoint, Callback, LearningRateM
 from pytorch_lightning.utilities.distributed import rank_zero_only
 
 from taming.data.utils import custom_collate
-
 # torch.manual_seed(0)
 # import random
 # random.seed(0)
 # np.random.seed(0)
+
 
 def ref_from_hist(model, batch_size):
     from indices import get_ref_hist
@@ -26,11 +36,12 @@ def ref_from_hist(model, batch_size):
     for hist in hist_list:
         ref = np.argsort(-hist)[:1]
         ref = torch.from_numpy(ref).to(device).unsqueeze(1).long()
-        ref = model.quantize_dec.embedding(ref) # 256*256
+        ref = model.quantize_dec.embedding(ref)  # 256*256
         ref = ref.view(1, 1, 1, -1).expand(batch_size, 16, 16, -1)
         ref = rearrange(ref, 'b h w c -> b c h w').contiguous()
         out.append(ref)
     return out
+
 
 def ref_from_tophist(model, batch_size):
     from indices import get_ref_hist
@@ -41,21 +52,23 @@ def ref_from_tophist(model, batch_size):
         ref = np.argsort(-hist)[:64]
         ref = torch.from_numpy(ref).to(device).unsqueeze(1).long()
 #         ref = torch.flip(ref,dims=[0])
-        ref = model.quantize_dec.embedding(ref) # 256*256*256
+        ref = model.quantize_dec.embedding(ref)  # 256*256*256
         ref = ref.view(1, 8, 8, -1).repeat(batch_size, 2, 2, 1)
         ref = rearrange(ref, 'b h w c -> b c h w').contiguous()
         out.append(ref)
     return out
-            
+
+
 def save_code(code, paths, folder):
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-    for i,path in enumerate(paths):
+    for i, path in enumerate(paths):
         save_path = os.path.join(folder, os.path.basename(path)+'.npy')
         np.save(save_path, code[i, :].detach().cpu().numpy())
         print(save_path, code[i, :].detach().cpu().numpy().shape)
-            
+
+
 def get_obj_from_str(string, reload=False):
     module, cls = string.rsplit(".", 1)
     if reload:
@@ -120,7 +133,8 @@ def get_parser(**parser_kwargs):
         nargs="?",
         help="disable test",
     )
-    parser.add_argument("-p", "--project", help="name of new or path to existing project")
+    parser.add_argument("-p", "--project",
+                        help="name of new or path to existing project")
     parser.add_argument(
         "-d",
         "--debug",
@@ -163,6 +177,7 @@ def instantiate_from_config(config):
 
 class WrappedDataset(Dataset):
     """Wraps an arbitrary object with __len__ and __getitem__ into a pytorch dataset"""
+
     def __init__(self, dataset):
         self.data = dataset
 
@@ -269,7 +284,8 @@ class ImageLogger(Callback):
             pl.loggers.WandbLogger: self._wandb,
             pl.loggers.TestTubeLogger: self._testtube,
         }
-        self.log_steps = [2 ** n for n in range(int(np.log2(self.batch_freq)) + 1)]
+        self.log_steps = [
+            2 ** n for n in range(int(np.log2(self.batch_freq)) + 1)]
         if not increase_log_steps:
             self.log_steps = [self.batch_freq]
         self.clamp = clamp
@@ -287,7 +303,7 @@ class ImageLogger(Callback):
     def _testtube(self, pl_module, images, batch_idx, split):
         for k in images:
             grid = torchvision.utils.make_grid(images[k])
-            grid = (grid+1.0)/2.0 # -1,1 -> 0,1; c,h,w
+            grid = (grid+1.0)/2.0  # -1,1 -> 0,1; c,h,w
 
             tag = f"{split}/{k}"
             pl_module.logger.experiment.add_image(
@@ -299,10 +315,11 @@ class ImageLogger(Callback):
                   global_step, current_epoch, batch_idx):
         root = os.path.join(save_dir, "images", split)
         for k in images:
-            grid = torchvision.utils.make_grid(images[k], nrow=self.batch_size, padding=0)
+            grid = torchvision.utils.make_grid(
+                images[k], nrow=self.batch_size, padding=0)
 
-            grid = (grid+1.0)/2.0 # -1,1 -> 0,1; c,h,w
-            grid = grid.transpose(0,1).transpose(1,2).squeeze(-1)
+            grid = (grid+1.0)/2.0  # -1,1 -> 0,1; c,h,w
+            grid = grid.transpose(0, 1).transpose(1, 2).squeeze(-1)
             grid = grid.numpy()
             grid = (grid*255).astype(np.uint8)
             filename = "{}_gs-{:06}_e-{:06}_b-{:06}.png".format(
@@ -326,7 +343,8 @@ class ImageLogger(Callback):
                 pl_module.eval()
 
             with torch.no_grad():
-                images = pl_module.log_images(batch, split=split, pl_module=pl_module)
+                images = pl_module.log_images(
+                    batch, split=split, pl_module=pl_module)
 
             for k in images:
                 N = min(images[k].shape[0], self.max_images)
@@ -339,7 +357,8 @@ class ImageLogger(Callback):
             self.log_local(pl_module.logger.save_dir, split, images,
                            pl_module.global_step, pl_module.current_epoch, batch_idx)
 
-            logger_log_images = self.logger_log_images.get(logger, lambda *args, **kwargs: None)
+            logger_log_images = self.logger_log_images.get(
+                logger, lambda *args, **kwargs: None)
             logger_log_images(pl_module, images, pl_module.global_step, split)
 
             if is_train:
@@ -359,7 +378,6 @@ class ImageLogger(Callback):
 
     def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
         self.log_img(pl_module, batch, batch_idx, split="val")
-
 
 
 if __name__ == "__main__":
@@ -394,7 +412,8 @@ if __name__ == "__main__":
             ckpt = os.path.join(logdir, "checkpoints", "last.ckpt")
 
         opt.resume_from_checkpoint = ckpt
-        base_configs = sorted(glob.glob(os.path.join(logdir, "configs/*.yaml")))
+        base_configs = sorted(
+            glob.glob(os.path.join(logdir, "configs/*.yaml")))
         opt.base = base_configs+opt.base
         _tmp = logdir.split("/")
         nowname = _tmp[_tmp.index("logs")+1]
@@ -480,7 +499,7 @@ if __name__ == "__main__":
                 "verbose": True,
                 "save_last": True,
                 "monitor": "val/aeloss_epoch",
-#                 "monitor": "val/loss",
+                #                 "monitor": "val/loss",
                 "save_top_k": 3,
             }
         }
@@ -491,7 +510,8 @@ if __name__ == "__main__":
 
         modelckpt_cfg = lightning_config.modelcheckpoint or OmegaConf.create()
         modelckpt_cfg = OmegaConf.merge(default_modelckpt_cfg, modelckpt_cfg)
-        trainer_kwargs["checkpoint_callback"] = instantiate_from_config(modelckpt_cfg)
+        trainer_kwargs["checkpoint_callback"] = instantiate_from_config(
+            modelckpt_cfg)
 
         # add callback which sets up log directory
         default_callbacks_cfg = {
@@ -521,16 +541,17 @@ if __name__ == "__main__":
                 "target": "main.LearningRateMonitor",
                 "params": {
                     "logging_interval": "step",
-                    #"log_momentum": True
+                    # "log_momentum": True
                 }
             },
         }
         callbacks_cfg = lightning_config.callbacks or OmegaConf.create()
         callbacks_cfg = OmegaConf.merge(default_callbacks_cfg, callbacks_cfg)
-        trainer_kwargs["callbacks"] = [instantiate_from_config(callbacks_cfg[k]) for k in callbacks_cfg]
+        trainer_kwargs["callbacks"] = [instantiate_from_config(
+            callbacks_cfg[k]) for k in callbacks_cfg]
 
         trainer = Trainer.from_argparse_args(trainer_opt, **trainer_kwargs)
-        
+
         # data
         data = instantiate_from_config(config.data)
         # NOTE according to https://pytorch-lightning.readthedocs.io/en/latest/datamodules.html
@@ -562,7 +583,8 @@ if __name__ == "__main__":
 
         def divein(*args, **kwargs):
             if trainer.global_rank == 0:
-                import pudb; pudb.set_trace()
+                import pudb
+                pudb.set_trace()
 
         import signal
         signal.signal(signal.SIGUSR1, melk)
@@ -579,26 +601,28 @@ if __name__ == "__main__":
             device = torch.device('cuda:0')
             model = model.to(device)
             model.eval()
-            loader = DataLoader(data.datasets["test"], batch_size=data.batch_size,collate_fn=custom_collate)
-            
+            loader = DataLoader(
+                data.datasets["test"], batch_size=data.batch_size, collate_fn=custom_collate)
+
 #             ref_list = ref_from_tophist(model, data.batch_size)
-            
+
             for batch_idx, batch in enumerate(loader):
                 print('Testing', batch_idx, '/', len(loader))
-                
+
                 ### Log images ###
                 with torch.no_grad():
-#                     log = model.log_images_with_ref(batch, ref=ref_list)
+                    #                     log = model.log_images_with_ref(batch, ref=ref_list)
                     log = model.log_images(batch)
                 root = os.path.join(logdir, "images", 'test')
                 os.makedirs(root, exist_ok=True)
-                
+
                 for k in log.keys():
                     image = None
-                    grid = torchvision.utils.make_grid(log[k], nrow=data.batch_size, padding=0)
-                    grid = (grid+1.0)/2.0 # -1,1 -> 0,1; c,h,w
+                    grid = torchvision.utils.make_grid(
+                        log[k], nrow=data.batch_size, padding=0)
+                    grid = (grid+1.0)/2.0  # -1,1 -> 0,1; c,h,w
                     grid = torch.clip(grid, 0, 1)
-                    grid = grid.transpose(0,1).transpose(1,2).squeeze(-1)
+                    grid = grid.transpose(0, 1).transpose(1, 2).squeeze(-1)
                     grid = grid.detach().cpu().numpy()
                     grid = (grid*255).astype(np.uint8)
                     if image is None:
@@ -608,16 +632,16 @@ if __name__ == "__main__":
                     filename = k+"_{:06}.png".format(batch_idx)
 
 #                     filename = os.path.basename(batch['image1_path'][0])+"_"+os.path.basename(batch['image2_path'][0])+".png"
-                    
+
                     path = os.path.join(root, filename)
                     Image.fromarray(image).save(path)
-                    
+
                 del log
-                if batch_idx>1000:
+                if batch_idx > 1000:
                     break
-                    
+
     except Exception:
-        if opt.debug and trainer.global_rank==0:
+        if opt.debug and trainer.global_rank == 0:
             try:
                 import pudb as debugger
             except ImportError:
@@ -626,7 +650,7 @@ if __name__ == "__main__":
         raise
     finally:
         # move newly created debug project to debug_runs
-        if opt.debug and not opt.resume and trainer.global_rank==0:
+        if opt.debug and not opt.resume and trainer.global_rank == 0:
             dst, name = os.path.split(logdir)
             dst = os.path.join(dst, "debug_runs", name)
             os.makedirs(os.path.split(dst)[0], exist_ok=True)
