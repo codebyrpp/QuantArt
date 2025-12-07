@@ -1,6 +1,6 @@
 model:
   base_learning_rate: 4.5e-6
-  target: quantart.models.stage_2.ExperimentStage2
+  target: quantart.models.stage_2.StyleTransfer
   params:
     checkpoint_encoder: logs/vqgan_faceshq_f16_1024.ckpt
     checkpoint_decoder: logs/vqgan_metfaces_f16_1024.ckpt

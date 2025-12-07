@@ -10,7 +10,7 @@ from quantart.components.quantizer import VectorQuantizer
 from quantart.util import load_model
 
 
-class ExperimentStage1(pl.LightningModule):
+class BaseVQGAN(pl.LightningModule):
     def __init__(self,
                  ddconfig,
                  lossconfig,

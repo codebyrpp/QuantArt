@@ -9,8 +9,8 @@ This document details the architectural components of the QuantArt implementatio
     - `Encoder` (`quantart/components/encoder.py`) - **Content Encoder**
     - `Encoder` (`quantart/components/encoder.py`) - **Reference/Style Encoder** (instantiated as `encoder_real`)
     - `VectorQuantizer` (`quantart/components/quantizer.py`) - **Quantization** (instantiated as `quantize_enc` and `quantize_dec`)
-    - `StyleTransferModule` (`quantart/components/style_transfer.py`) - **Latent Transformation**
-      - `StyleTransferBlock` (Sequential Blocks)
+    - `SGAModule` (`quantart/components/style_transfer.py`) - **Latent Transformation (Style Transfer)**
+      - `SGABlock` (Sequential Blocks)
         - `ResnetBlock`
         - `AttnBlock` (Self-Attention)
         - `AttnBlock` (Cross-Attention with Reference)
@@ -31,7 +31,7 @@ graph TD
     Z_X -->|Quantizer (Enc)| Q_X[Quantized Q_X]
     Z_Ref -->|Quantizer (Dec)| Q_Ref[Quantized Q_Ref]
 
-    Q_X --> STM[Style Transfer Module]
+    Q_X --> STM[SGAModule]
     Q_Ref --> STM
 
     STM -->|Cross Attention| H_X[Transformed Latent H_X]
@@ -56,7 +56,7 @@ Assuming `ddconfig` with `z_channels=256`, `ch_mult=[1,1,2,2,4]`, `attn_resoluti
 4.  **Quantization**: `quant, _, _ = self.quantize_enc(h)`
     - Shape: $[B, \text{embed\_dim}, 16, 16]$.
     - Indices: $[B, 16, 16]$ (flattened $B \cdot 256$).
-5.  **Style Transfer Module**: `h_x = self.model_x2y(quant_x, quant_ref)`
+5.  **Style Transfer Module** (`SGAModule`): `h_x = self.model_x2y(quant_x, quant_ref)`
     - Input: `quant_x` $[B, 256, 16, 16]$, `quant_ref` $[B, 256, 16, 16]$.
     - Operation: Preserves spatial dimensions.
     - Output: `h_x` $[B, 256, 16, 16]$.
@@ -66,16 +66,16 @@ Assuming `ddconfig` with `z_channels=256`, `ch_mult=[1,1,2,2,4]`, `attn_resoluti
 
 ## Component Details
 
-### Style Transfer Module (`quantart/components/style_transfer.py`)
+### SGAModule (`quantart/components/style_transfer.py`)
 
-This is the core novelty. It consists of `block_num` (default 6) layers of `StyleTransferBlock`.
+This is the core novelty, often referred to as the Style Transfer Module. It consists of `block_num` (default 6) layers of `SGABlock`.
 Each block applies:
 
 1.  **ResnetBlock**: Local processing.
 2.  **Self-Attention**: Global context within the content image.
 3.  **Cross-Attention**: Attends to the Reference `quant_ref` to inject style information.
 
-### Vector Quantizer (`quantart/components/quantizer.py`)
+### VectorQuantizer (`quantart/components/quantizer.py`)
 
 Uses `VectorQuantizer`. It maintains a codebook (embedding table).
 

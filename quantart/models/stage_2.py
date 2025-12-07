@@ -10,12 +10,12 @@ from main import instantiate_from_config
 
 from quantart.components.encoder import Encoder
 from quantart.components.decoder import Decoder
-from quantart.components.style_transfer import StyleTransferModule
+from quantart.components.style_transfer import SGAModule
 from quantart.components.quantizer import VectorQuantizer
 from quantart.util import load_model, disable_grad
 
 
-class ExperimentStage2(pl.LightningModule):
+class StyleTransfer(pl.LightningModule):
     def __init__(self,
                  ddconfig,
                  lossconfig,
@@ -51,7 +51,7 @@ class ExperimentStage2(pl.LightningModule):
         self.post_quant_conv = torch.nn.Conv2d(
             embed_dim, ddconfig["z_channels"], 1)
 
-        self.model_x2y = StyleTransferModule(
+        self.model_x2y = SGAModule(
             embed_dim, block_num=6, residual=use_residual, use_conv=use_conv, use_selfatt=use_selfatt)
 
         self.loss = instantiate_from_config(lossconfig)

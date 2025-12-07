@@ -3,7 +3,7 @@ import torch.nn as nn
 from quantart.components.blocks import ResnetBlock, AttnBlock
 
 
-class StyleTransferBlock(nn.Module):
+class SGABlock(nn.Module):
     def __init__(self, channels, residual=True, use_conv=True, use_selfatt=True):
         super().__init__()
         self.use_conv = use_conv
@@ -27,12 +27,12 @@ class StyleTransferBlock(nn.Module):
         return x
 
 
-class StyleTransferModule(nn.Module):
+class SGAModule(nn.Module):
     def __init__(self, channels, block_num=6, residual=True, use_conv=True, use_selfatt=True):
         super().__init__()
         blocks = []
         for i in range(block_num):
-            blocks.append(StyleTransferBlock(
+            blocks.append(SGABlock(
                 channels, residual=residual, use_conv=use_conv, use_selfatt=use_selfatt))
         self.blocks = torch.nn.Sequential(*blocks)
 

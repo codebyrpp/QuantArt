@@ -33,7 +33,7 @@ quantart/                  <-- Renamed from 'taming'
 ├── components/            <-- Split from 'modules'
 │   ├── encoder.py         <-- Content/Style Encoder
 │   ├── decoder.py         <-- Generator
-│   ├── style_transfer.py  <-- StyleTransferModule
+│   ├── style_transfer.py  <-- SGAModule (Style Guided Attention)
 │   ├── quantizer.py       <-- VectorQuantizer
 │   ├── discriminator.py   <-- NLayerDiscriminator
 │   └── blocks.py          <-- ResnetBlock, AttnBlock, etc.
@@ -55,7 +55,7 @@ quantart/                  <-- Renamed from 'taming'
 1.  **`quantart/components/blocks.py`**: `ResnetBlock`, `AttnBlock`, etc.
 2.  **`quantart/components/encoder.py`**: `Encoder` class.
 3.  **`quantart/components/decoder.py`**: `Decoder` class.
-4.  **`quantart/components/style_transfer.py`**: `StyleTransferModule`, `StyleTransferBlock`.
+4.  **`quantart/components/style_transfer.py`**: `SGAModule`, `SGABlock`.
 
 ## 3. Configuration Management
 
