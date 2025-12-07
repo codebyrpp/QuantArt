@@ -1,0 +1,86 @@
+model:
+  base_learning_rate: 4.5e-6
+  target: quantart.models.adaptive.AdaptiveQuantArtModel
+  params:
+    learning_rate: 4.5e-6
+    embed_dim: 256
+    # Path to the pre-trained Stage 2 checkpoint (if available) to initialize the backbone
+    # stage2_ckpt_path: "logs/stage2_face2art/checkpoints/last.ckpt"
+
+    lossconfig:
+      target: quantart.losses.stage_2.Stage2Loss
+      params:
+        disc_ndf: 64
+        disc_num_layers: 0
+        disc_conditional: False
+        disc_in_channels: 256
+        disc_start: 0
+        disc_weight: 1.0
+        disc_factor: 0.1
+        codebook1_weight: 10.0
+        codebook2_weight: 1.0
+        reverse_weight: 1.0
+        style_weight: 10.0
+        G_step: 1
+        disc_loss: "vanilla" # Using vanilla as per default in adaptive logic, though face2art used implicit default (which seems to be hinge in code but config had 0 layers?) - code default is hinge, let's stick to what works or explicit.
+
+    base_model_config:
+      checkpoint_encoder: logs/vqgan_faceshq_f16_1024.ckpt
+      checkpoint_decoder: logs/vqgan_metfaces_f16_1024.ckpt
+      embed_dim: 256
+      n_embed: 1024
+      ddconfig:
+        double_z: False
+        z_channels: 256
+        resolution: 256
+        in_channels: 3
+        out_ch: 3
+        ch: 128
+        ch_mult: [1, 1, 2, 2, 4]
+        num_res_blocks: 2
+        attn_resolutions: [16]
+        dropout: 0.0
+
+      lossconfig:
+        target: quantart.losses.stage_2.Stage2Loss
+        params:
+          disc_ndf: 64
+          disc_num_layers: 0
+          disc_conditional: False
+          disc_in_channels: 256
+          disc_start: 0
+          disc_weight: 1.0
+          disc_factor: 0.1
+          codebook1_weight: 10.0
+          codebook2_weight: 1.0
+          reverse_weight: 1.0
+          style_weight: 10.0
+          G_step: 1
+
+      use_residual: True
+      use_conv: True
+      use_selfatt: True
+
+data:
+  target: main.DataModuleFromConfig
+  params:
+    batch_size: 8
+    num_workers: 8
+    train:
+      target: quantart.data.unpaired_image.UnpairedImageTrain
+      params:
+        folder2: datasets/metfaces/images
+        folder1: datasets/ffhq/images1024x1024
+        size: 256
+    validation:
+      target: quantart.data.unpaired_image.UnpairedImageVal
+      params:
+        folder2: datasets/metfaces/images
+        folder1: datasets/ffhq/images1024x1024
+        size: 256
+    test:
+      target: quantart.data.unpaired_image.UnpairedImageTest
+      params:
+        folder2: datasets/metfaces/images
+        folder1: datasets/ffhq/images1024x1024
+        size: 256
