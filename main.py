@@ -7,6 +7,7 @@ import importlib
 from omegaconf import OmegaConf
 import numpy as np
 from PIL import Image
+import wandb
 
 # Monkey patch: Map ANTIALIAS to LANCZOS (its replacement)
 if not hasattr(Image, 'ANTIALIAS'):
@@ -293,7 +294,6 @@ class ImageLogger(Callback):
 
     @rank_zero_only
     def _wandb(self, pl_module, images, batch_idx, split):
-        raise ValueError("No way wandb")
         grids = dict()
         for k in images:
             grid = torchvision.utils.make_grid(images[k])
@@ -475,6 +475,7 @@ if __name__ == "__main__":
                     "save_dir": logdir,
                     "offline": opt.debug,
                     "id": nowname,
+                    "project": opt.project,
                 }
             },
             "testtube": {
@@ -485,7 +486,7 @@ if __name__ == "__main__":
                 }
             },
         }
-        default_logger_cfg = default_logger_cfgs["testtube"]
+        default_logger_cfg = default_logger_cfgs["wandb"]
         logger_cfg = lightning_config.logger or OmegaConf.create()
         logger_cfg = OmegaConf.merge(default_logger_cfg, logger_cfg)
         trainer_kwargs["logger"] = instantiate_from_config(logger_cfg)
