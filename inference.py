@@ -120,8 +120,12 @@ def main():
         if content_path.lower() == 'q':
             break
 
+        content_path = "imgs/content/" + content_path
+
         style_path = input(
             "Enter path to style image: ").strip('"').strip("'")
+
+        style_path = "imgs/style/" + style_path
 
         alpha_input = input(
             "Enter alpha (visual fidelity, 0.0-1.0) [Leave empty for combinations 0, 0.5, 1]: ")
