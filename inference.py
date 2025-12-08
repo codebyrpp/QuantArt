@@ -137,6 +137,12 @@ def main():
         else:
             betas = [0.0, 0.5, 1.0]
 
+        decoder_input = input(
+            "Enter decoder to use (continuous(c), discrete(d), fused_model(f)) [d]: ")
+        decoder_choice = decoder_input.strip().lower()
+        if not decoder_choice:
+            decoder_choice = 'd'
+
         print("Loading images...")
         try:
             content_img = preprocess_image(
@@ -153,7 +159,7 @@ def main():
                 style_name = os.path.splitext(os.path.basename(style_path))[0]
                 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                 result_dir = os.path.join(
-                    "results", f"{content_name}_{style_name}_{timestamp}")
+                    "results", f"{content_name}_{style_name}_{decoder_choice}_{timestamp}")
                 os.makedirs(result_dir, exist_ok=True)
 
             with torch.no_grad():
@@ -199,15 +205,23 @@ def main():
                         z_test = weighted_sum(term1, term2, alpha_val)
 
                         # 4. Decode
-                        if alpha_val == 0:
-                            fused_model = model_c
-                        elif alpha_val == 1:
-                            fused_model = model_d
+                        if decoder_choice == 'f':
+                            if alpha_val == 0:
+                                decoder_model = model_c
+                            elif alpha_val == 1:
+                                decoder_model = model_d
+                            else:
+                                decoder_model = fuse_models(
+                                    model_d, model_c, alpha_val)
+                        elif decoder_choice == 'c':
+                            decoder_model = model_c
+                        elif decoder_choice == 'd':
+                            decoder_model = model_d
                         else:
-                            fused_model = fuse_models(
-                                model_d, model_c, alpha_val)
+                            # Fallback to d
+                            decoder_model = model_d
 
-                        stylized_image = fused_model.decode(z_test)
+                        stylized_image = decoder_model.decode(z_test)
 
                         print(f"Saving output to {output_path}...")
                         save_image(stylized_image, output_path)
