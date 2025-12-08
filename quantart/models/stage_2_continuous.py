@@ -5,7 +5,7 @@ from main import instantiate_from_config
 
 from quantart.components.encoder import Encoder
 from quantart.components.decoder import Decoder
-from quantart.components.style_transfer import StyleTransferModule
+from quantart.components.style_transfer import SGAModule
 from quantart.util import load_model
 
 
@@ -40,7 +40,7 @@ class StyleTransferContinuous(pl.LightningModule):
             ddconfig["z_channels"], embed_dim, 1)
         self.post_quant_conv = torch.nn.Conv2d(
             embed_dim, ddconfig["z_channels"], 1)
-        self.model_x2y = StyleTransferModule(
+        self.model_x2y = SGAModule(
             embed_dim, block_num=6, residual=use_residual)
 
         self.loss = instantiate_from_config(lossconfig)
