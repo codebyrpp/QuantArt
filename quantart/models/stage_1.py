@@ -130,20 +130,6 @@ class BaseVQGAN(pl.LightningModule):
         dec = self.decoder(quant)
         return dec
 
-    def decode_code(self, code_b):
-        """
-        Decode from discrete codebook indices.
-
-        Args:
-            code_b (torch.Tensor): Tensor of codebook indices.
-
-        Returns:
-            torch.Tensor: Reconstructed images.
-        """
-        quant_b = self.quantize.embed_code(code_b)
-        dec = self.decode(quant_b)
-        return dec
-
     def forward(self, input):
         """
         Forward pass of the VQGAN.
