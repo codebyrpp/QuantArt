@@ -1,0 +1,64 @@
+model:
+  base_learning_rate: 4.5e-06
+  target: quantart.models.stage_2.StyleTransfer
+  params:
+    ckpt_path: logs/landscape2art/checkpoints/last.ckpt
+    embed_dim: 256
+    n_embed: 1024
+    ddconfig:
+      double_z: false
+      z_channels: 256
+      resolution: 256
+      in_channels: 3
+      out_ch: 3
+      ch: 128
+      ch_mult:
+        - 1
+        - 1
+        - 2
+        - 2
+        - 4
+      num_res_blocks: 2
+      attn_resolutions:
+        - 16
+      dropout: 0.0
+    lossconfig:
+      target: quantart.losses.stage_2.Stage2Loss
+      params:
+        disc_ndf: 64
+        disc_num_layers: 0
+        disc_conditional: false
+        disc_in_channels: 256
+        disc_start: 0
+        disc_weight: 1.0
+        disc_factor: 0.8
+        codebook1_weight: 1.0
+        codebook2_weight: 1.0
+        reverse_weight: 1.0
+        style_weight: 10.0
+        G_step: 1
+data:
+  target: main.DataModuleFromConfig
+  params:
+    batch_size: 1
+    num_workers: 1
+    train:
+      target: quantart.data.unpaired_image.UnpairedImageTrain
+      params:
+        folder2: datasets/painter-by-numbers/train
+        folder1: datasets/lhq_1024_jpg/lhq_1024_jpg
+        wikiart_info2: datasets/painter-by-numbers/train_info.csv
+        wikiart_key2: landscape
+        size: 256
+    validation:
+      target: quantart.data.paired_image.PairedImageVal
+      params:
+        folder2: imgs/style
+        folder1: imgs/content
+        size: 256
+    test:
+      target: quantart.data.paired_image.PairedImageTest
+      params:
+        folder2: imgs/style
+        folder1: imgs/content
+        size: 256
