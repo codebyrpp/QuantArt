@@ -16,6 +16,7 @@ class DownloadProgressBar(tqdm):
     """
     Copy-pasted from https://stackoverflow.com/a/53877507/2685677
     """
+
     def update_to(self, b=1, bsize=1, tsize=None):
         if tsize is not None:
             self.total = tsize
@@ -24,7 +25,8 @@ class DownloadProgressBar(tqdm):
 
 def download_file_with_progress(url, output_path):
     with DownloadProgressBar(unit='B', unit_scale=True, miniters=1, desc=url.split('/')[-1]) as t:
-        urllib.request.urlretrieve(url, filename=output_path, reporthook=t.update_to)
+        urllib.request.urlretrieve(
+            url, filename=output_path, reporthook=t.update_to)
 
 
 DATASET_TO_LINKS = {
@@ -81,27 +83,33 @@ def convert_size(size_bytes: int):
     return "%s %s" % (s, size_name[i])
 
 
-def download_dataset(dataset_name: str):
+def download_dataset(dataset_name: str, save_path: str):
     assert dataset_name in list(DATASET_TO_LINKS.keys()), \
         f"Wrong dataset name. Possible options are: {', '.join(DATASET_TO_LINKS.keys())}"
     file_urls = DATASET_TO_LINKS[dataset_name]
 
-    save_dir = f'lhq/{dataset_name}'
-    print(f'Saving files into ./{save_dir} directory...')
+    save_dir = f'{save_path}'
+    print(f'Saving files into {save_dir} directory...')
     os.makedirs(save_dir, exist_ok=True)
 
     for i, file_url in enumerate(file_urls):
         download_url = get_real_direct_link(file_url)
-        url_parameters = urlparse.parse_qs(urlparse.urlparse(download_url).query)
+        url_parameters = urlparse.parse_qs(
+            urlparse.urlparse(download_url).query)
         filename = url_parameters['filename'][0]
         file_size = convert_size(int(url_parameters['fsize'][0]))
         save_path = os.path.join(save_dir, filename)
-        print(f'Downloading {i+1}/{len(file_urls)} files: {save_path} (size: {file_size})')
+        print(
+            f'Downloading {i+1}/{len(file_urls)} files: {save_path} (size: {file_size})')
         download_file_with_progress(download_url, save_path)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Landscapes HQ dataset downloader")
-    parser.add_argument('dataset', type=str, choices=list(DATASET_TO_LINKS.keys()))
+    parser = argparse.ArgumentParser(
+        description="Landscapes HQ dataset downloader")
+    parser.add_argument('dataset', type=str,
+                        choices=list(DATASET_TO_LINKS.keys()))
+    # save path
+    parser.add_argument('--save_path', type=str, default='lhq')
     args = parser.parse_args()
-    download_dataset(args.dataset)
+    download_dataset(args.dataset, args.save_path)
