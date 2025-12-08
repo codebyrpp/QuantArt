@@ -124,11 +124,18 @@ def main():
             "Enter path to style image: ").strip('"').strip("'")
 
         alpha_input = input(
-            "Enter alpha (visual fidelity, 0.0-1.0) [0.5]: ")
-        alpha_val = float(alpha_input) if alpha_input.strip() else 0.5
+            "Enter alpha (visual fidelity, 0.0-1.0) [Leave empty for combinations 0, 0.5, 1]: ")
+        if alpha_input.strip():
+            alphas = [float(alpha_input)]
+        else:
+            alphas = [0.0, 0.5, 1.0]
 
-        beta_input = input("Enter beta (style fidelity, 0.0-1.0) [0.5]: ")
-        beta_val = float(beta_input) if beta_input.strip() else 0.5
+        beta_input = input(
+            "Enter beta (style fidelity, 0.0-1.0) [Leave empty for combinations 0, 0.5, 1]: ")
+        if beta_input.strip():
+            betas = [float(beta_input)]
+        else:
+            betas = [0.0, 0.5, 1.0]
 
         print("Loading images...")
         try:
@@ -136,23 +143,26 @@ def main():
                 content_path, args.size, args.device)
             style_img = preprocess_image(style_path, args.size, args.device)
 
-            # Determine output path
-            if args.output is None:
-                os.makedirs("results", exist_ok=True)
+            # Determine if we are in combo mode
+            is_combo = (len(alphas) > 1 or len(betas) > 1)
+
+            result_dir = None
+            if is_combo:
+                content_name = os.path.splitext(
+                    os.path.basename(content_path))[0]
+                style_name = os.path.splitext(os.path.basename(style_path))[0]
                 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                output_path = os.path.join(
-                    "results", f"stylized_alpha_{alpha_val}_beta_{beta_val}_{timestamp}.png")
-            else:
-                output_path = args.output
+                result_dir = os.path.join(
+                    "results", f"{content_name}_{style_name}_{timestamp}")
+                os.makedirs(result_dir, exist_ok=True)
 
             with torch.no_grad():
-                # Restore model_d decoder weights before each run
+                # Ensure model_d is clean before feature extraction
                 model_d.decoder.load_state_dict(model_d_decoder_sd)
                 model_d.post_quant_conv.load_state_dict(model_d_post_quant_sd)
 
                 # 1. Extract Features
                 # Discrete Features
-                # model.encode returns: quant, emb_loss, info
                 z_c_hat, _, _ = model_d.encode(content_img, quantize=True)
                 z_s_hat, _, _ = model_d.encode_real(style_img, quantize=True)
 
@@ -161,41 +171,46 @@ def main():
                     content_img, style_img)
 
                 # 2. Transform Features (SGA)
-                # Discrete Path
                 h_x_d = model_d.model_x2y(z_c_hat, z_s_hat)
-                z_y_hat, _, _ = model_d.quantize_dec(
-                    h_x_d)  # Quantized stylized feature
+                z_y_hat, _, _ = model_d.quantize_dec(h_x_d)
 
-                # 3. Combine Features
-                # ztest = ⊕α(⊕β (ˆzy , ˆzc), ⊕β (zy , zc))
-                # ⊕p(a, b) = pa + (1 − p)b
+                for alpha_val in alphas:
+                    for beta_val in betas:
+                        # Restore model_d decoder weights before each fusion
+                        model_d.decoder.load_state_dict(model_d_decoder_sd)
+                        model_d.post_quant_conv.load_state_dict(
+                            model_d_post_quant_sd)
 
-                # Term 1: Discrete mix
-                term1 = weighted_sum(z_y_hat, z_c_hat, beta_val)
+                        # Determine output path
+                        if is_combo:
+                            output_path = os.path.join(
+                                result_dir, f"alpha_{alpha_val}_beta_{beta_val}.png")
+                        elif args.output is None:
+                            os.makedirs("results", exist_ok=True)
+                            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                            output_path = os.path.join(
+                                "results", f"stylized_alpha_{alpha_val}_beta_{beta_val}_{timestamp}.png")
+                        else:
+                            output_path = args.output
 
-                # Term 2: Continuous mix
-                term2 = weighted_sum(z_y, z_c, beta_val)
+                        # 3. Combine Features
+                        term1 = weighted_sum(z_y_hat, z_c_hat, beta_val)
+                        term2 = weighted_sum(z_y, z_c, beta_val)
+                        z_test = weighted_sum(term1, term2, alpha_val)
 
-                # Final z_test
-                z_test = weighted_sum(term1, term2, alpha_val)
+                        # 4. Decode
+                        if alpha_val == 0:
+                            fused_model = model_c
+                        elif alpha_val == 1:
+                            fused_model = model_d
+                        else:
+                            fused_model = fuse_models(
+                                model_d, model_c, alpha_val)
 
-                # 4. Decode
-                # Fuse decoders: ¯DS = ⊕α( ˆDS , DS )
-                # ˆDS is discrete model decoder (model_d), DS is continuous model decoder (model_c)
-                # We fuse into model_d's decoder instance
-                if alpha_val == 0:
-                    fused_model = model_c
-                elif alpha_val == 1:
-                    fused_model = model_d
-                else:
-                    fused_model = fuse_models(model_d, model_c, alpha_val)
+                        stylized_image = fused_model.decode(z_test)
 
-                # Decode z_test
-                # decode() calls post_quant_conv then decoder
-                stylized_image = fused_model.decode(z_test)
-
-                print(f"Saving output to {output_path}...")
-                save_image(stylized_image, output_path)
+                        print(f"Saving output to {output_path}...")
+                        save_image(stylized_image, output_path)
 
         except Exception as e:
             print(f"Error processing image: {e}")
