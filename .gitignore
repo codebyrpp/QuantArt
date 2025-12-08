@@ -1,3 +1,5 @@
 __pycache__/
 .DS_Store
 logs/**/*.png
+
+Miniconda3-latest-Linux-x86_64.sh
