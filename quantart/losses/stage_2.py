@@ -32,7 +32,7 @@ class Stage2Loss(nn.Module):
             self.disc_loss = vanilla_d_loss
         else:
             raise ValueError(f"Unknown GAN loss '{disc_loss}'.")
-        print(f"Stage2Loss running with {disc_loss} loss.")
+
         self.G_step = G_step
         self.disc_factor = disc_factor
         self.discriminator_weight = disc_weight
