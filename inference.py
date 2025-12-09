@@ -142,10 +142,10 @@ def main():
             betas = [0.0, 0.5, 1.0]
 
         decoder_input = input(
-            "Enter decoder to use (continuous(c), discrete(d), fused_model(f)) [d]: ")
+            "Enter decoder to use (continuous(c), discrete(d), fused_model(f)) [f]: ")
         decoder_choice = decoder_input.strip().lower()
         if not decoder_choice:
-            decoder_choice = 'd'
+            decoder_choice = 'f'
 
         print("Loading images...")
         try:
