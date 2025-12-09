@@ -233,12 +233,6 @@ def main():
         except Exception as e:
             print(f"Error processing image: {e}")
 
-        # Reset output to None if it was auto-generated?
-        # args.output is from argparse, so it stays the same throughout the loop.
-        # If args.output was provided by user, it will be reused (overwritten).
-        # If args.output was None, output_path is recalculated each time.
-        # So we don't need to reset anything here.
-
 
 if __name__ == "__main__":
     main()
